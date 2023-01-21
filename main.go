@@ -6,11 +6,15 @@ import (
     "encoding/json"
     "net"
     "net/url"
+    "strings"
 
     "github.com/gofiber/fiber/v2"
 )
 
 func validateURL(s string) bool {
+    if !(strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")) {
+        return false
+    }
     u, err := url.Parse(s)
     if err != nil {
         return false
