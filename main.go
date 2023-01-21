@@ -1,20 +1,62 @@
+// main.go
 package main
 
 import (
-  "fmt"
-  "github.com/gofiber/fiber/v2"
+    "fmt"
+    "encoding/json"
+    "net"
+    "net/url"
+
+    "github.com/gofiber/fiber/v2"
 )
 
-func main() {
-  app := fiber.New()
+func validateURL(s string) bool {
+    u, err := url.Parse(s)
+    if err != nil {
+        return false
+    }
 
-  app.Static("/", "./public")
-  
-  app.Post("/api/shorturl", func(c *fiber.Ctx) error {
-    c.Accepts("application/json")
-    body := c.Body()
-    return c.SendString(string(body))
-  })
-  app.Listen(":3000")
-  fmt.Println("Hello, World!")
+    ips, err := net.LookupIP(u.Host)
+    if err != nil {
+        return false
+    }
+    if len(ips) == 0 {
+        return false
+    }
+
+    return true
+}
+
+func main() {
+    app := fiber.New()
+
+    app.Static("/", "./public")
+
+    app.Get("api/shorturl/:shorturl", func(c *fiber.Ctx) error {
+        shorturl := c.Params("shorturl")
+        result := GetShortURL(shorturl)
+        if result == nil {
+            return c.SendStatus(404)
+        }
+        fmt.Println(result)
+        return c.Redirect(result["original_url"])
+    })
+
+    app.Post("/api/shorturl", func(c *fiber.Ctx) error {
+        c.Accepts("application/json")
+        body := c.Body()
+        var data map[string]string
+        json.Unmarshal(body, &data)
+        if validateURL(data["url"]) {
+            doc := InsertURL(data["url"])
+            return c.JSON(doc)
+        } else {
+            return c.JSON(fiber.Map{
+                "error": "invalid URL",
+            })
+        }
+    })
+
+    fmt.Println("Listening on port 3000")
+    app.Listen(":3000")
 }
